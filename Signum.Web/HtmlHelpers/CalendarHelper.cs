@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +8,6 @@ using System.Globalization;
 using System.Web.Script.Serialization;
 using System.Web;
 using System.Linq.Expressions;
-using Signum.Web.Lines;
 using System.Web.Mvc.Html;
 using Signum.Entities;
 using Signum.Entities.DynamicQuery;
@@ -36,7 +35,7 @@ namespace Signum.Web
             var max = matches.Where(m => IsDate(m.Value)).Max(a => a.Index + a.Length);
 
             if (matches.Any(m => !IsDate(m.Value) && m.Index < max))
-                throw new FormatException("Impossible to split {0} in Date and Time".Formato(dateTimeFormat));
+                throw new FormatException("Impossible to split {0} in Date and Time".FormatWith(dateTimeFormat));
 
             var min = matches.Where(m => !IsDate(m.Value)).Min(a => a.Index);
 

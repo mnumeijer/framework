@@ -45,9 +45,11 @@ module SF {
     function setupAjaxExtraParameters() {
 
         $.ajaxPrefilter((options: JQueryAjaxSettings, originalOptions: JQueryAjaxSettings, jqXHR: JQueryXHR) => {
-            var data = $.extend({}, originalOptions.data);
-            addAjaxExtraParameters(data);
-            options.data = $.param(data);
+            if (ajaxExtraParameters.length) {
+                var data = $.extend({}, originalOptions.data);
+                addAjaxExtraParameters(data);
+                options.data = $.param(data);
+            }
         });
     }
 
@@ -57,7 +59,7 @@ module SF {
 
             var originalSuccess = options.success;
 
-            var getRredirectUrl = function (ajaxResult) {
+            var getRedirectUrl = function (ajaxResult) {
                 if (SF.isEmpty(ajaxResult))
                     return null;
 
@@ -77,11 +79,10 @@ module SF {
                 //if (!options.avoidRedirect && jqXHR.status == 302)  
                 //    location.href = jqXHR.getResponseHeader("Location");
 
-                var url = getRredirectUrl(result);
+                var url = getRedirectUrl(result);
                 if (!SF.isEmpty(url))
                     location.href = url;
-
-                if (originalSuccess)
+                else if (originalSuccess)
                     originalSuccess(result, text, xhr);
             };
         });
@@ -160,7 +161,7 @@ module SF {
                 } catch (e) { }
             }
             return Cookies.read(key);
-        };
+        }
 
         export function setItem(key: string, value: string, days?: number) {
             if (isSupported) {
@@ -170,12 +171,7 @@ module SF {
                 } catch (e) { }
             } else
                 Cookies.create(key, value, days ? days : 30);
-        };
-
-        return {
-            getItem: getItem,
-            setItem: setItem
-        };
+        }
     }
 
     export function hiddenInput(id: string, value: any) {
@@ -252,8 +248,7 @@ module SF {
             }
         }
 
-        var currentForm = $("form");
-        currentForm.after($form);
+        $("body").after($form);
         
         (<HTMLFormElement>$form[0]).submit();
         $form.remove();

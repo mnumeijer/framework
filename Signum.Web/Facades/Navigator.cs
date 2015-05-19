@@ -1,5 +1,4 @@
-#region usings
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -36,7 +35,6 @@ using System.Runtime.Serialization;
 using Microsoft.SqlServer.Types;
 using Newtonsoft.Json;
 using System.Globalization;
-#endregion
 
 namespace Signum.Web
 {
@@ -52,7 +50,7 @@ namespace Signum.Web
         public const string ViewRouteName = "sfView";
         public const string CreateRouteName = "sfCreate";
 
-        public static string NavigateRoute(Type type, int? id)
+        public static string NavigateRoute(Type type, PrimaryKey? id)
         {
             var entitySettings = EntitySettings(type);
             if (entitySettings.ViewRoute != null)
@@ -67,19 +65,19 @@ namespace Signum.Web
             return result;
         }
 
-        public static string NavigateRoute(IIdentifiable ie)
+        public static string NavigateRoute(IEntity ie)
         {
             return NavigateRoute(ie.GetType(), ie.Id);
         }
 
-        public static string NavigateRoute(Lite<IIdentifiable> lite)
+        public static string NavigateRoute(Lite<IEntity> lite)
         {
             return NavigateRoute(lite.EntityType, lite.Id);
         }
 
         public static JsonNetResult JsonNet(this ControllerBase controller, object data, JsonSerializerSettings settings = null)
         {
-            var result = new JsonNetResult { Data = data };
+            var result = new JsonNetResult(data);
 
             if (settings != null)
                 result.SerializerSettings = settings;
@@ -165,7 +163,7 @@ namespace Signum.Web
             Navigator.Manager.EntitySettings.AddRange(settings, s => s.StaticType, s => s, "EntitySettings");
         }
 
-        public static EntitySettings<T> EntitySettings<T>() where T : IdentifiableEntity
+        public static EntitySettings<T> EntitySettings<T>() where T : Entity
         {
             return (EntitySettings<T>)EntitySettings(typeof(T));
         }
@@ -186,7 +184,7 @@ namespace Signum.Web
         }
 
         static GenericInvoker<Func<ModifiableEntity, ControllerBase, string, PropertyRoute, SortedList<string, string>, MappingContext>> miApplyChanges =
-            new GenericInvoker<Func<ModifiableEntity, ControllerBase, string, PropertyRoute, SortedList<string, string>, MappingContext>>((me, cc, prefix, route, dic) => ApplyChanges<TypeDN>((TypeDN)me, cc, prefix, route, dic));
+            new GenericInvoker<Func<ModifiableEntity, ControllerBase, string, PropertyRoute, SortedList<string, string>, MappingContext>>((me, cc, prefix, route, dic) => ApplyChanges<TypeEntity>((TypeEntity)me, cc, prefix, route, dic));
         public static MappingContext<T> ApplyChanges<T>(this T entity, ControllerBase controller, string prefix = null, PropertyRoute route = null, SortedList<string, string> inputs = null) where T : ModifiableEntity
         {
             Mapping<T> mapping = (Mapping<T>)Navigator.EntitySettings(typeof(T)).UntypedMappingMain;
@@ -224,7 +222,7 @@ namespace Signum.Web
         }
 
         public static Lite<T> TryParseLite<T>(this ControllerBase controller, string requestKey)
-            where T : class, IIdentifiable
+            where T : class, IEntity
         {
             var key = controller.ControllerContext.HttpContext.Request[requestKey];
             if (key == null)
@@ -233,7 +231,7 @@ namespace Signum.Web
         }
 
         public static Lite<T> ParseLite<T>(this ControllerBase controller, string requestKey)
-            where T : class, IIdentifiable
+            where T : class, IEntity
         {
             return Lite.Parse<T>(controller.ControllerContext.HttpContext.Request[requestKey]);
         }
@@ -258,7 +256,7 @@ namespace Signum.Web
             return (T)Manager.ExtractEntity(controller, prefix ?? controller.Prefix());
         }
 
-        public static Lite<T> ExtractLite<T>(this ControllerBase controller, string prefix = null) where T : class, IIdentifiable
+        public static Lite<T> ExtractLite<T>(this ControllerBase controller, string prefix = null) where T : class, IEntity
         {
             return (Lite<T>)Manager.ExtractLite<T>(controller, prefix ?? controller.Prefix());
         }
@@ -276,6 +274,11 @@ namespace Signum.Web
         public static bool IsCreable(Type type, bool isSearch = false)
         {
             return Manager.OnIsCreable(type, isSearch);
+        }
+
+        public static bool IsFindable(Type type)
+        {
+            return Manager.OnIsFindable(type);
         }
 
         public static bool IsReadOnly(Type type)
@@ -313,23 +316,29 @@ namespace Signum.Web
             return EntitySettings(entity.GetType()).OnPartialViewName(entity); 
         }
 
-        public static void RegisterArea(Type clientType)
+        public static void RegisterArea(Type clientType, 
+            string areaName = null, 
+            string controllerNamespace = null, 
+            string resourcesNamespace = null)
         {
-            if (!clientType.Name.EndsWith("Client"))
-                throw new InvalidOperationException("The name of clientType should end with the convention 'Client'");
+            if (areaName == null)
+                areaName = clientType.Namespace.AfterLast('.');
 
-            RegisterArea(clientType, clientType.Name.RemoveEnd("Client".Length));
-        }
-
-        public static void RegisterArea(Type clientType, string areaName)
-        {
             if (areaName.Start(1) == "/")
-                throw new SystemException("Invalid start character / in {0}".Formato(areaName));
+                throw new SystemException("Invalid start character / in {0}".FormatWith(areaName));
 
-            CompiledViews.RegisterArea(clientType.Assembly, areaName);
-            SignumControllerFactory.RegisterControllersLike(clientType, areaName);
+            if (controllerNamespace == null)
+                controllerNamespace = clientType.Namespace;
 
-            EmbeddedFilesRepository rep = new EmbeddedFilesRepository(clientType.Assembly, areaName);
+            if (resourcesNamespace == null)
+                resourcesNamespace = clientType.Namespace;
+
+            var assembly = clientType.Assembly;
+
+            CompiledViews.RegisterArea(assembly, areaName);
+            SignumControllerFactory.RegisterControllersIn(assembly, controllerNamespace, areaName);
+
+            EmbeddedFilesRepository rep = new EmbeddedFilesRepository(assembly, "~/" + areaName + "/", resourcesNamespace);
             if (!rep.IsEmpty)
                 FileRepositoryManager.Register(rep);
         }
@@ -340,10 +349,10 @@ namespace Signum.Web
             Finder.Manager.Initialize();
         }
 
-        internal static void AssertNotReadonly(IdentifiableEntity ident)
+        internal static void AssertNotReadonly(Entity ident)
         {
             if (Navigator.IsReadOnly(ident))
-                throw new UnauthorizedAccessException("{0} is read-only".Formato(ident));
+                throw new UnauthorizedAccessException("{0} is read-only".FormatWith(ident));
         }
     }
     
@@ -353,10 +362,10 @@ namespace Signum.Web
 
         public static string ViewPrefix = "~/Signum/Views/{0}.cshtml";
 
-        public string NormalPageView = ViewPrefix.Formato("NormalPage");
-        public string NormalControlView = ViewPrefix.Formato("NormalControl");
-        public string PopupControlView = ViewPrefix.Formato("PopupControl");
-        public string ValueLineBoxView = ViewPrefix.Formato("ValueLineBox");
+        public string NormalPageView = ViewPrefix.FormatWith("NormalPage");
+        public string NormalControlView = ViewPrefix.FormatWith("NormalControl");
+        public string PopupControlView = ViewPrefix.FormatWith("PopupControl");
+        public string ValueLineBoxView = ViewPrefix.FormatWith("ValueLineBox");
         
         protected Dictionary<string, Type> WebTypeNames { get; private set; }
       
@@ -409,8 +418,8 @@ namespace Signum.Web
                 WebTypeNames = EntitySettings.Values.Where(es => es.WebTypeName.HasText())
                     .ToDictionary(es => es.WebTypeName, es => es.StaticType, StringComparer.InvariantCultureIgnoreCase, "WebTypeNames");
 
-              
-                Navigator.RegisterArea(typeof(Navigator), "Signum");
+
+                Navigator.RegisterArea(typeof(Navigator), areaName: "Signum", resourcesNamespace: "Signum.Web.Signum");
                 FileRepositoryManager.Register(new LocalizedJavaScriptRepository(typeof(JavascriptMessage), "Signum"));
                 FileRepositoryManager.Register(new CalendarLocalizedJavaScriptRepository("~/Signum/calendarResources/"));
                 FileRepositoryManager.Register(new UrlsRepository("~/Signum/urls/"));
@@ -440,7 +449,7 @@ namespace Signum.Web
             string name = methodBase.DeclaringType.TypeName() + "." + methodBase.Name;
 
             if (!loadedModules.Contains(name))
-                throw new InvalidOperationException("Call {0} first".Formato(name));
+                throw new InvalidOperationException("Call {0} first".FormatWith(name));
         }
 
         protected internal string GetOrCreateTabID(ControllerBase c)
@@ -479,7 +488,7 @@ namespace Signum.Web
             };
         }
 
-        private void FillViewDataForViewing(ControllerBase controller, IRootEntity rootEntity, NavigateOptions options)
+        public void FillViewDataForViewing(ControllerBase controller, IRootEntity rootEntity, NavigateOptions options)
         {
             TypeContext tc = TypeContextUtilities.UntypedNew(rootEntity, "");
             controller.ViewData.Model = tc;
@@ -508,13 +517,13 @@ namespace Signum.Web
 
             string niceName = mod.GetType().NiceName();
 
-            IdentifiableEntity ident = mod as IdentifiableEntity;
+            Entity ident = mod as Entity;
             if (ident == null)
                 return niceName;
 
             if (ident.IsNew)
             {
-                return LiteMessage.New.NiceToString().ForGenderAndNumber(ident.GetType().GetGender()) + " " + niceName;
+                return LiteMessage.New_G.NiceToString().ForGenderAndNumber(ident.GetType().GetGender()) + " " + niceName;
             }
             return niceName + " " + ident.Id;
         }
@@ -557,7 +566,7 @@ namespace Signum.Web
             Type cleanType = cleanTC.UntypedValue.GetType();
 
             if (!Navigator.IsViewable(cleanType, partialViewName))
-                throw new Exception(NormalControlMessage.ViewForType0IsNotAllowed.NiceToString().Formato(cleanType.Name));
+                throw new Exception(NormalControlMessage.ViewForType0IsNotAllowed.NiceToString().FormatWith(cleanType.Name));
 
             controller.ViewData.Model = cleanTC;
 
@@ -587,15 +596,15 @@ namespace Signum.Web
             if (es != null)
                 return es.WebTypeName;
 
-            if (type.IsIdentifiableEntity())
+            if (type.IsEntity())
             {
                 var cleanName = TypeLogic.TryGetCleanName(type);
                 if (cleanName != null)
                     return cleanName;
             }
 
-            throw new InvalidOperationException("Impossible to resolve WebTypeName for '{0}' because is not registered in Navigator's EntitySettings".Formato(type.Name) + 
-                (type.IsIdentifiableEntity() ? " or the Schema" : null));
+            throw new InvalidOperationException("Impossible to resolve WebTypeName for '{0}' because is not registered in Navigator's EntitySettings".FormatWith(type.Name) + 
+                (type.IsEntity() ? " or the Schema" : null));
         }
 
         protected internal virtual MappingContext<T> ApplyChanges<T>(ControllerBase controller, T entity, string prefix, Mapping<T> mapping, PropertyRoute route, SortedList<string, string> inputs) where T: ModifiableEntity
@@ -626,7 +635,7 @@ namespace Signum.Web
             RuntimeInfo runtimeInfo = RuntimeInfo.FromFormValue(form[key]);
 
             if (runtimeInfo == null)
-                throw new ArgumentNullException("{0} not found in form request".Formato(key));
+                throw new ArgumentNullException("{0} not found in form request".FormatWith(key));
 
             if (runtimeInfo.IdOrNull != null)
                 return Database.Retrieve(runtimeInfo.EntityType, runtimeInfo.IdOrNull.Value);
@@ -635,7 +644,7 @@ namespace Signum.Web
         }
 
         protected internal virtual Lite<T> ExtractLite<T>(ControllerBase controller, string prefix)
-            where T:class, IIdentifiable
+            where T:class, IEntity
         {
             NameValueCollection form = controller.ControllerContext.HttpContext.Request.Form;
             RuntimeInfo runtimeInfo = RuntimeInfo.FromFormValue(form[TypeContextUtilities.Compose(prefix, EntityBaseKeys.RuntimeInfo)]);
@@ -660,6 +669,27 @@ namespace Signum.Web
 
             if (IsCreable != null)
                 foreach (var isCreable in IsCreable.GetInvocationListTyped())
+                {
+                    if (!isCreable(type))
+                        return false;
+                }
+
+            return true;
+        }
+
+        public event Func<Type, bool> IsFindable;
+
+        internal protected virtual bool OnIsFindable(Type type)
+        {
+            if(!Finder.IsFindable(type))
+                return false;
+
+            EntitySettings es = EntitySettings.TryGetC(type);
+            if (es != null && !es.OnIsFindable())
+                return false;
+
+            if (IsFindable != null)
+                foreach (var isCreable in IsFindable.GetInvocationListTyped())
                 {
                     if (!isCreable(type))
                         return false;
@@ -709,13 +739,13 @@ namespace Signum.Web
         {
             EntitySettings es = EntitySettings.TryGetC(entity.GetType());
             if (es == null)
-                throw new InvalidOperationException("No EntitySettings for type {0}".Formato(entity.GetType().Name));
+                throw new InvalidOperationException("No EntitySettings for type {0}".FormatWith(entity.GetType().Name));
 
             if (es.OnPartialViewName(entity) == null)
-                throw new InvalidOperationException("No view has been set in the EntitySettings for {0}".Formato(entity.GetType().Name));
+                throw new InvalidOperationException("No view has been set in the EntitySettings for {0}".FormatWith(entity.GetType().Name));
 
             if (!IsViewableBase(entity.GetType(), entity))
-                throw new InvalidOperationException("Entities of type {0} are not viewable".Formato(entity.GetType().Name));
+                throw new InvalidOperationException("Entities of type {0} are not viewable".FormatWith(entity.GetType().Name));
 
             return es;
         }
@@ -827,8 +857,8 @@ namespace Signum.Web
         }
 
 
-        public event Func<Lite<IdentifiableEntity>, IDisposable> RetrievingForView; 
-        internal IDisposable OnRetrievingForView(Lite<IdentifiableEntity> lite)
+        public event Func<Lite<Entity>, IDisposable> RetrievingForView; 
+        public IDisposable OnRetrievingForView(Lite<Entity> lite)
         {
             return Disposable.Combine(RetrievingForView, f => f(lite));
         }
@@ -852,14 +882,11 @@ namespace Signum.Web
 
         public static JsonNetResult RedirectAjax(string url)
         {
-            return new JsonNetResult
+            return new JsonNetResult(new
             {
-                Data = new
-                {
-                    result = JsonResultType.url.ToString(),
-                    url = url
-                }
-            };
+                result = JsonResultType.url.ToString(),
+                url = url
+            });
         }
 
         public static JsonNetResult ToJsonModelState(this ModelStateDictionary dictionary)
@@ -898,6 +925,12 @@ namespace Signum.Web
 
         public JsonNetResult()
         {
+            SerializerSettings = new JsonSerializerSettings();
+        }
+
+        public JsonNetResult(object data)
+        {
+            Data = data;
             SerializerSettings = new JsonSerializerSettings();
         }
 
