@@ -63,10 +63,11 @@ By default all the validators let null be a valid value, so this validator shoul
 
 ### String Validators
 
-Validators for string propertties
+Validators for string properties
 
 ```C#
-[StringLengthValidator(Max=100, AllowNulls=true)] //AllowNulls is default to false and makes no distiction between empty string and nulls
+[StringLengthValidator(Min=4, Max=100, AllowNulls=true)] //AllowNulls is false by default, and makes no distiction between empty string and nulls, if the string is not-null should be greater than 4
+[StringLengthValidator(Min=4, MultiLine = true)] //MultiLine is false by default, and when set to true allows '\r\n' characters, as well as leading and trailing spaces
 [StringCaseValidator(Case.Uppercase)] // Everything in upercase
 
 [EMailValidator] // should be a valid e-Mail address
@@ -81,7 +82,7 @@ Validators for string propertties
 Validators for numeric properties (`int`, `long`, `decimal`, `float`, `double`, etc..) 
 
 ```C#
-[NumberIsValidator(ComparisonType.GreaterThanOrEqual, 0)]
+[NumberIsValidator(ComparisonType.GreaterThanOrEqualTo, 0)]
 [NumberBetweenValidator(0,10)] //Not using C intervals to please user, so 10 is a valid number as well. 
 [DecimalsValidator(3)] // Numbers should not have more than 3 decimal places, default is 2. Works only with decimal. 
 ```
@@ -91,7 +92,7 @@ Validators for numeric properties (`int`, `long`, `decimal`, `float`, `double`, 
 Validators for `MList<T>` properties
 
 ```C#
-[CountIsValidator(ComparisonType.GreaterThanOrEqual, 3)]  //Limit the number of elements
+[CountIsValidator(ComparisonType.GreaterThanOrEqualTo, 3)]  //Limit the number of elements
 [NoRepeatValidator] //Avoid repeated elements in a MList  
 ```
 

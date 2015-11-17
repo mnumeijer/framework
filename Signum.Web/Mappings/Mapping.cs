@@ -98,14 +98,27 @@ namespace Signum.Web
                     return TimeSpan.Parse(ctx.Input);
             });
 
-            MappingRepository<string>.Mapping = ctx =>
-            {
-                if (ctx.Empty())
-                    return ctx.None();
-
-                return ctx.Input;
-            };
+            MappingRepository<string>.Mapping = StringTrim;
         }
+
+        public static Mapping<string> String = ctx =>
+        {
+            if (ctx.Empty())
+                return ctx.None();
+
+            return ctx.Input;
+        };
+
+        public static Mapping<string> StringTrim = ctx =>
+        {
+            if (ctx.Empty())
+                return ctx.None();
+
+            if (ctx.Input.HasText())
+                return ctx.Input.Trim();
+
+            return ctx.Input;
+        };
 
         public static void RegisterValue<T>(Mapping<T> mapping)
         {
@@ -866,7 +879,7 @@ namespace Signum.Web
 
     public class MListMapping<S> : BaseMListMapping<S>
     {
-        public Type RowIdType = typeof(int);
+        public Type RowIdType;
 
         public MListMapping()
             : base()
@@ -891,14 +904,16 @@ namespace Signum.Web
                     mlistPriv.InnerList.Where(a => a.RowId.HasValue).ToDictionary(a => a.RowId.Value, a => a);
 
                 var newList = new List<MList<S>.RowIdValue>();
-
                 foreach (MappingContext<S> itemCtx in GenerateItemContexts(ctx))
                 {
                     Debug.Assert(!itemCtx.Empty());
 
-                    PrimaryKey rowId;
-                    if (TryParse(itemCtx.Inputs.TryGetC(EntityListBaseKeys.RowId), out rowId))
+                    string rowIdString = itemCtx.Inputs.TryGetC(EntityListBaseKeys.RowId);  
+
+                    if(rowIdString.HasText())
                     {
+                        var rowId = new PrimaryKey((IComparable)ReflectionTools.Parse(rowIdString, GetRowIdType(ctx)));
+
                         var oldValue = dic.GetOrThrow(rowId, "No RowID {0} found");
 
                         itemCtx.Value = oldValue.Value;
@@ -944,19 +959,22 @@ namespace Signum.Web
             }
         }
 
-        public bool TryParse(string value, out PrimaryKey id)
+        private Type GetRowIdType(MappingContext<MList<S>> ctx)
         {
-            object val;
-            if (ReflectionTools.TryParse(value, RowIdType, out val))
-            {
-                id = new PrimaryKey((IComparable)val);
-                return true;
-            }
-            else
-            {
-                id = default(PrimaryKey);
-                return false;
-            }
+            if(RowIdType != null)
+                return RowIdType;
+
+            return RowIdType = GetRowIdTypeFromSchema(ctx);
+        }
+
+        private static Type GetRowIdTypeFromSchema(MappingContext<MList<S>> ctx)
+        {
+            var tryField = ctx.PropertyRoute == null ? null : Schema.Current.TryField(ctx.PropertyRoute) as FieldMList;
+
+            if (tryField == null)
+                throw new InvalidOperationException("Impossible to determine RowIdType for {0}. Set it manually".FormatWith(typeof(MListMapping<S>).TypeName()));
+
+            return tryField.TableMList.PrimaryKey.Type;
         }
 
         private bool AreEqual(List<MList<S>.RowIdValue> newList, List<MList<S>.RowIdValue> oldList)
@@ -1035,6 +1053,8 @@ namespace Signum.Web
 
         public Func<S, bool> FilterElements;
 
+        public bool OnlyIfPossible;
+
         public MListDictionaryMapping(Expression<Func<S, K>> getKeyExpression)
             : this(getKeyExpression, Mapping.New<S>())
         {
@@ -1092,7 +1112,10 @@ namespace Signum.Web
 
                     subContext.Value = KeyMapping(subContext);
 
-                    itemCtx.Value = dic[subContext.Value];
+                    if (!dic.ContainsKey(subContext.Value) && OnlyIfPossible)
+                        continue;
+
+                    itemCtx.Value = dic.GetOrThrow(subContext.Value);
 
                     itemCtx.Value = ElementMapping(itemCtx);
 

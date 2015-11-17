@@ -32,7 +32,7 @@ namespace Signum.Web
             if (valueLine.InlineCheckbox)
                 return new HtmlTag("label").InnerHtml("{0} {1}".FormatHtml(value, valueLine.LabelText)).ToHtml();
 
-            return helper.FormGroup(valueLine, valueLine.Prefix, valueLine.LabelText, value);
+            return helper.FormGroup(valueLine, valueLine.Prefix, valueLine.LabelHtml ?? valueLine.LabelText.FormatHtml(), value);
         }
 
         private static MvcHtmlString InternalValue(HtmlHelper helper, ValueLine valueLine)
@@ -45,7 +45,7 @@ namespace Signum.Web
                 sb.AddLine(Configurator.Helper[vltype](helper, valueLine));
 
                 if (valueLine.UnitText.HasText())
-                    sb.AddLine(helper.Span(valueLine.Compose("unit"), valueLine.UnitText, "input-group-addon"));
+                    sb.AddLine(helper.Span(null, valueLine.UnitText, "input-group-addon"));
             }
 
             return sb.ToHtml();
@@ -77,18 +77,27 @@ namespace Signum.Web
                 BooleanEnum.False;
         }
 
+        static MvcHtmlString HiddenWithoutId(string name, string value)
+        {
+            return new HtmlTag("input")
+                .Attr("type", "hidden")
+                .Attr("name", name)
+                .Attr("value", value)
+                .ToHtmlSelf();
+        }
+
         private static MvcHtmlString InternalComboBox(HtmlHelper helper, ValueLine valueLine, Type uType, Enum value)
         {
             if (valueLine.ReadOnly)
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(helper.Hidden(valueLine.Prefix, valueLine.UntypedValue.ToString()));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, valueLine.UntypedValue.ToString()));
 
                 string str = value == null ? null :
                     LocalizedAssembly.GetDescriptionOptions(uType).IsSet(DescriptionOptions.Members) ? value.NiceToString() : value.ToString();
 
-                return result.Concat(helper.FormControlStatic(null, str, valueLine.ValueHtmlProps));
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, str, valueLine.ValueHtmlProps));
             }
 
             StringBuilder sb = new StringBuilder();
@@ -114,8 +123,9 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(helper.Hidden(valueLine.Prefix, value.TryToString(valueLine.Format)));
-                return result.Concat(helper.FormControlStatic(null, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value.TryToString(valueLine.Format)));
+
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
             }
 
             valueLine.ValueHtmlProps.AddCssClass("form-control");
@@ -130,8 +140,9 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(helper.Hidden(valueLine.Prefix, value.TryToString(valueLine.Format)));
-                return result.Concat(helper.FormControlStatic(null, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value.TryToString(valueLine.Format)));
+
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
             }
             
             var dateFormatAttr = valueLine.PropertyRoute.PropertyInfo.GetCustomAttribute<TimeSpanDateFormatAttribute>();
@@ -153,12 +164,12 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(helper.Hidden(valueLine.Prefix, value));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value));
 
                 if (valueLine.UnitText.HasText())
-                    return new HtmlTag("p").Id(valueLine.Prefix).SetInnerText(value).Class("form-control").Attrs(valueLine.ValueHtmlProps).ToHtml();
+                    return result.Concat(new HtmlTag("p").Id(valueLine.Prefix).SetInnerText(value).Class("form-control").Attrs(valueLine.ValueHtmlProps).ToHtml());
                 else
-                    return result.Concat(helper.FormControlStatic(valueLine.Prefix, value, valueLine.ValueHtmlProps));
+                    return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value, valueLine.ValueHtmlProps));
             }
 
             if (!valueLine.ValueHtmlProps.ContainsKey("autocomplete"))
@@ -180,7 +191,9 @@ namespace Signum.Web
             if (!valueLine.ReadOnly)
                 valueLine.ValueHtmlProps.Add("onkeydown", Reflector.IsDecimalNumber(valueLine.Type) ? 
                     "return SF.InputValidator.isDecimal(event);" : 
-                    "return SF.InputValidator.isNumber(event);");    
+                    "return SF.InputValidator.isNumber(event);");
+
+            valueLine.ValueHtmlProps.AddCssClass("numeric");
             
             return helper.TextboxInLine(valueLine);
         }
@@ -214,8 +227,12 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(helper.Hidden(valueLine.Prefix, (string)valueLine.UntypedValue));
-                return result.Concat(helper.FormControlStatic("", (string)valueLine.UntypedValue, valueLine.ValueHtmlProps));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, (string)valueLine.UntypedValue));
+
+                if (valueLine.FormControlStaticAsFormControlReadonly)
+                    valueLine.ValueHtmlProps.AddCssClass("readonly-textarea");
+
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, (string)valueLine.UntypedValue, valueLine.ValueHtmlProps));
             }
 
             valueLine.ValueHtmlProps.Add("autocomplete", "off");
@@ -287,9 +304,6 @@ namespace Signum.Web
 
         public static MvcHtmlString Hidden(this HtmlHelper helper, HiddenLine hiddenLine)
         {
-            if (hiddenLine.ReadOnly)
-                return helper.Span(hiddenLine.Prefix, hiddenLine.UntypedValue.TryToString() ?? "", "form-control");
-
             return helper.Hidden(hiddenLine.Prefix, hiddenLine.UntypedValue.TryToString() ?? "", hiddenLine.ValueHtmlProps);
         }
     }

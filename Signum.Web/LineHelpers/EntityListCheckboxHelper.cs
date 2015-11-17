@@ -74,7 +74,7 @@ namespace Signum.Web
                     sb.AddLine(EntityBaseHelper.EmbeddedTemplate(entityListCheckBox, EntityBaseHelper.RenderContent(helper, templateTC, RenderContentMode.Content, entityListCheckBox), null));
                 }
 
-                sb.AddLine(entityListCheckBox.ConstructorScript(JsModule.Lines, "EntityRepeater"));
+                sb.AddLine(entityListCheckBox.ConstructorScript(JsModule.Lines, "EntityListCheckbox"));
             }
 
             return sb.ToHtml();
@@ -103,7 +103,12 @@ namespace Signum.Web
         {
             HtmlStringBuilder sb = new HtmlStringBuilder();
 
-            using (sb.SurroundLine(new HtmlTag("label", itemTC.Compose(EntityRepeaterKeys.RepeaterElement)).Class("sf-checkbox-element")))
+            var label = new HtmlTag("label", itemTC.Compose(EntityRepeaterKeys.RepeaterElement)).Class("sf-checkbox-element");
+
+            if (entityListCheckBox.CustomizeLabel != null)
+                entityListCheckBox.CustomizeLabel(label, lite);
+
+            using (sb.SurroundLine(label))
             {
                 if (EntityBaseHelper.EmbeddedOrNew((Modifiable)(object)itemTC.Value))
                     sb.AddLine(EntityBaseHelper.RenderPopup(helper, itemTC, RenderPopupMode.PopupInDiv, entityListCheckBox));
@@ -118,6 +123,9 @@ namespace Signum.Web
 
                 if(isChecked)
                     cb.Attr("checked", "checked");
+
+                if (entityListCheckBox.ReadOnly)
+                    cb.Attr("disabled", "disabled");
 
                 sb.AddLine(cb);
 

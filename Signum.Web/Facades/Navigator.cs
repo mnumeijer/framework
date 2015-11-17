@@ -50,11 +50,16 @@ namespace Signum.Web
         public const string ViewRouteName = "sfView";
         public const string CreateRouteName = "sfCreate";
 
+        public static Func<UrlHelper, Type, PrimaryKey?, string> NavigateRouteFunc;
         public static string NavigateRoute(Type type, PrimaryKey? id)
         {
             var entitySettings = EntitySettings(type);
             if (entitySettings.ViewRoute != null)
                 return entitySettings.ViewRoute(new UrlHelper(HttpContext.Current.Request.RequestContext), type, id);
+
+            if (NavigateRouteFunc != null)
+                return NavigateRouteFunc(new UrlHelper(HttpContext.Current.Request.RequestContext), type, id);
+
 
             var result = new UrlHelper(HttpContext.Current.Request.RequestContext).RouteUrl(id == null ? CreateRouteName : ViewRouteName, new
             {
@@ -271,7 +276,7 @@ namespace Signum.Web
             return Manager.ResolveWebTypeName(type);
         }
      
-        public static bool IsCreable(Type type, bool isSearch = false)
+        public static bool IsCreable(Type type, bool? isSearch = false)
         {
             return Manager.OnIsCreable(type, isSearch);
         }
@@ -637,7 +642,7 @@ namespace Signum.Web
             if (runtimeInfo == null)
                 throw new ArgumentNullException("{0} not found in form request".FormatWith(key));
 
-            if (runtimeInfo.IdOrNull != null)
+            if (runtimeInfo.EntityType.IsEntity() && !runtimeInfo.IsNew)
                 return Database.Retrieve(runtimeInfo.EntityType, runtimeInfo.IdOrNull.Value);
             else
                 return new ConstructorContext(controller).ConstructUntyped(runtimeInfo.EntityType);
@@ -657,13 +662,13 @@ namespace Signum.Web
 
         public event Func<Type, bool> IsCreable;
 
-        internal protected virtual bool OnIsCreable(Type type, bool isSearch)
+        internal protected virtual bool OnIsCreable(Type type, bool? isSearch)
         {
             EntitySettings es = EntitySettings.TryGetC(type);
             if (es == null)
                 return true;
 
-            if (!es.OnIsCreable(isSearch))
+            if (isSearch.HasValue && !es.OnIsCreable(isSearch.Value))
                 return false;
 
 
@@ -867,7 +872,8 @@ namespace Signum.Web
     public enum JsonResultType
     {
         url,
-        ModelState
+        ModelState,
+        messageBox
     }
 
     public static class JsonAction

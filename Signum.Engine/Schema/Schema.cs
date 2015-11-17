@@ -52,6 +52,8 @@ namespace Signum.Engine.Maps
 
         public SchemaAssets Assets { get; private set; }
 
+        public ViewBuilder ViewBuilder { get; set; }
+
         Dictionary<Type, Table> tables = new Dictionary<Type, Table>();
         public Dictionary<Type, Table> Tables
         {
@@ -200,14 +202,14 @@ namespace Signum.Engine.Maps
             return ee.OnPreUnsafeInsert(query, constructor, entityQuery);
         }
 
-        internal void OnPreBulkInsert(Type type)
+        internal void OnPreBulkInsert(Type type, bool inMListTable)
         {
             AssertAllowed(type, inUserInterface: false);
 
             var ee = entityEvents.TryGetC(type);
 
             if (ee != null)
-                ee.OnPreBulkInsert();
+                ee.OnPreBulkInsert(inMListTable);
         }
 
         public ICacheController CacheController(Type type)
@@ -449,6 +451,7 @@ namespace Signum.Engine.Maps
         {
             this.Settings = settings;
             this.Assets = new SchemaAssets();
+            this.ViewBuilder = new Maps.ViewBuilder(this);
 
             Generating += SchemaGenerator.SnapshotIsolation;
             Generating += SchemaGenerator.CreateSchemasScript;
@@ -614,6 +617,11 @@ namespace Signum.Engine.Maps
             return FindField(Table(route.RootType), route.Members);
         }
 
+        public Field TryField(PropertyRoute route)
+        {
+            return TryFindField(Table(route.RootType), route.Members);
+        }
+
         public override string ToString()
         {
             return "Schema ( tables: {0} )".FormatWith(tables.Count);
@@ -654,6 +662,7 @@ namespace Signum.Engine.Maps
         public bool IsNullable { get; set; }
         public bool IsCollection { get; set; }
         public bool IsEnum { get; set; }
+        public bool IsImplementedByAll { get; set; }
     }
 
   

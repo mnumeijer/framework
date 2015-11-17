@@ -86,9 +86,13 @@ export class EntityBase {
         return Entities.RuntimeInfo.getFromPrefix(this.options.prefix);
     }
 
-    getEntityValue(): Entities.EntityValue
-    {
-        return new Entities.EntityValue(this.getRuntimeInfo(), this.getToString(), null);
+    getEntityValue(): Entities.EntityValue {
+        var ri = this.getRuntimeInfo();
+
+        if (!ri)
+            return null;
+
+        return new Entities.EntityValue(ri, this.getToString(), null);
     }
 
     extractEntityHtml(itemPrefix?: string): Entities.EntityHtml {
@@ -444,7 +448,8 @@ export class EntityLine extends EntityBase {
             link.attr('href', entityValue == null ? null : entityValue.link);
         this.prefix.child(Entities.Keys.toStr).get().val('');
         
-        this.visible(this.prefix.child(Entities.Keys.link).tryGet(), entityValue != null);
+        var linkParent = link.parent(".form-control-static");
+        this.visible(linkParent.length ? linkParent : link, entityValue != null);
         this.visible(this.prefix.get().find("ul.typeahead.dropdown-menu"), entityValue == null);
 
 
@@ -1408,5 +1413,8 @@ export class EntityStrip extends EntityList {
         this.prefix.child(Entities.Keys.toStr).get().val('');
         this.freeReservedPrefix(prefix);
     }
+}
+
+export class EntityListCheckbox extends EntityListBase {
 }
 

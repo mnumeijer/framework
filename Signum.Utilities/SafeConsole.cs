@@ -68,14 +68,14 @@ namespace Signum.Utilities
             Console.ForegroundColor = old;
         }
 
-        public static string AskString(string question, Func<string, string> stringValidator)
+        public static string AskString(string question, Func<string, string> stringValidator = null)
         {
             Console.Write(question);
             do
             {
                 var userAnswer = Console.ReadLine();
 
-                string error = stringValidator(userAnswer); 
+                string error = stringValidator == null ? null : stringValidator(userAnswer);
                 if (error == null)
                     return userAnswer;
 
@@ -189,6 +189,12 @@ namespace Signum.Utilities
 
         public static void WaitExecute(Action action)
         {
+            if (Console.IsOutputRedirected)
+            {
+                action();
+                return;
+            }
+
             int? result = null;
             try
             {

@@ -176,7 +176,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
         new Execute(OrderOperation.Save)
         {
             FromStates = { OrderState.Ordered }, //New property
-            ToState = OrderState.Ordered,
+            ToStates = { OrderState.Ordered },
             Lite = false,
             Execute = (o, _) =>
             {
@@ -208,7 +208,7 @@ In the **UI** this operations are shown as buttons in the top of the entity cont
 It has the following members: 
 
 * **Execute:** An `Action<T, object[]>` to be executed when the operation is invoked. The action will be surrounded in a transaction and the entity will also be implicitly saved at the end.
-* **CanExecute:** A function that returns whether a method could be executed in the current state of the entity or not. It there is a problem returns an `string` with the explanation, otherwise `null`. 
+* **CanExecute:** A function that returns whether a method could be executed in the current state of the entity or not. If there is a problem it returns an `string` with the explanation, otherwise `null`. 
 * **AllowNew:** A bool controlling whether the operation can be executed over new entities or not. By default `false` and is typically set to `true` for `Save` operations.
 * **Lite:** When `true`, the database version of the entity is taken, otherwise the user entity is used (possibly with some changes). By default `false` and is typically set to `true` for `Save` operations.
 
@@ -228,7 +228,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
 		new Execute(OrderOperation.SaveNew) 
 		{
 		    FromStates = { OrderState.New }, //The operation can only be executed for new entities
-		    ToState = OrderState.Ordered, //After the execution, Ordered state will be asserted
+		    ToStates = { OrderState.Ordered }, //After the execution, Ordered state will be asserted
 		    AllowsNew = true, //Can be executed for new entities
 		    Lite = false, //The whole entity will be sent, and can be dirty
 		    Execute = (o, args) =>
@@ -241,7 +241,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
 		new Execute(OrderOperation.Save)
 		{
 		    FromStates = { OrderState.Ordered },
-		    ToState = OrderState.Ordered,
+		    ToStates = { OrderState.Ordered },
 		    Lite = false, //The whole entity will be sent, and can be dirty
 		    Execute = (o, _) =>
 		    {
@@ -252,7 +252,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
 		{
 		    CanExecute = o => o.Details.IsEmpty() ? "No order lines" : null, //Special CanExecute
 		    FromStates = { OrderState.Ordered },
-		    ToState = OrderState.Shipped, 
+		    ToStates = { OrderState.Shipped }, 
             //Lite = true by default, so only a lite (or a clean entity) can be used
 		    Execute = (o, args) =>
 		    {
@@ -270,7 +270,7 @@ Example invoking the operatons using `OperationLogic.Execute` extension method:
 
 ```C#
 var order = new OrderEntity().Execute(OrderOperation.SaveNew);  //Entity is new but works because AllowsNew = true
-oder.Customer = customer
+order.Customer = customer
 order.Execute(OrderOperation.Save); //Entity is dirty but works because Lite = false
 order.ToLite().Execute(OrderOperation.Ship); //Entity will be retrieved from the database
 order.Execute(OrderOperation.Ship); //Also works because entity is clean
@@ -341,7 +341,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
         ...
         new Construct(OrderOperation.Create)
         {
-            ToState = OrderState.New,
+            ToStates = { OrderState.New },
             Construct = (_) => new OrderEntity
             {
                 State = OrderState.New,
@@ -368,7 +368,7 @@ In the **UI** this operations are shown as menu items grouped in the top of the 
 It has the following members: 
 
 * **Construct:** A `Func<F, object[], T>` that create the entity (and optionally save it) from the **from** entity.
-* **CanConstruct:** A function that returns whether an entity can be executed in the current state of the **from** entity. It there is a problem returns an `string` with the explanation, otherwise `null`. 
+* **CanConstruct:** A function that returns whether an entity can be executed in the current state of the **from** entity. If there is a problem returns an `string` with the explanation, otherwise `null`. 
 
 And, only for `Graph<T, S>`: 
 * **ToState:** the state the entity should be at the end of the construction.
@@ -381,7 +381,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
         ...
         new ConstructFrom<CustomerEntity>(OrderOperation.CreateOrderFromCustomer)
         {
-            ToState = OrderState.New,
+            ToStates = { OrderState.New },
             Construct = (c, _) => new OrderEntity
             {
                 State = OrderState.New,
@@ -423,7 +423,7 @@ public class OrderGraph : Graph<OrderEntity, OrderState>
         ...
         new ConstructFromMany<ProductEntity>(OrderOperation.CreateOrderFromProducts)
         {
-            ToState = OrderState.New,
+            ToStates = { OrderState.New },
             Construct = (prods, _) =>
             {
                 var dic = Database.Query<ProductEntity>()
@@ -559,7 +559,7 @@ new Execute(OrderOperation.Ship)
 {
     CanExecute = o => o.Details.IsEmpty() ? "No order lines" : null,
     FromStates = { OrderState.Ordered },
-    ToState = OrderState.Shipped,
+    ToStates = { OrderState.Shipped },
     Execute = (o, args) =>
     {
         o.ShippedDate = args.TryGetArgS<DateTime>() ?? DateTime.Now;

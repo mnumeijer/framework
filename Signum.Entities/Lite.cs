@@ -311,6 +311,7 @@ namespace Signum.Entities
 
         public static Lite<T> Parse<T>(string liteKey) where T : class, IEntity
         {
+
             return (Lite<T>)Lite.Parse(liteKey);
         }
 
@@ -362,7 +363,7 @@ namespace Signum.Entities
             if (entity == null)
                 return null;
 
-            if (entity.IsNew)
+            if (entity.IdOrNull==null)
                 throw new InvalidOperationException("ToLite is not allowed for new entities, use ToLiteFat instead");
 
             return (Lite<T>)giNewLite.GetInvoker(entity.GetType())(entity.Id, entity.ToString());

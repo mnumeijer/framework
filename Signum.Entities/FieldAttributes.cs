@@ -301,7 +301,7 @@ sb.Schema.Settings.FieldAttributes(({0} a) => a.{1}).Replace(new ImplementedByAt
             }
         }
 
-        public PrimaryKeyAttribute(Type type, string name = "Id")
+        public PrimaryKeyAttribute(Type type, string name = "ID")
         {
             this.Type = type;
             this.Name = name;
@@ -333,7 +333,7 @@ sb.Schema.Settings.FieldAttributes(({0} a) => a.{1}).Replace(new ImplementedByAt
     }
 
     [AttributeUsage(AttributeTargets.Field)]
-    sealed class ViewPrimaryKeyAttribute : Attribute
+    public sealed class ViewPrimaryKeyAttribute : Attribute
     { 
     }
 

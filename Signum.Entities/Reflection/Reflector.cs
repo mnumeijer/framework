@@ -475,5 +475,25 @@ namespace Signum.Entities.Reflection
             if (!ValidIdentifier(step))
                 throw new FormatException("'{0}' is not a valid identifier".FormatWith(step));
         }
+
+        public static PropertyInfo PropertyInfo<T>(this T entity, Expression<Func<T, object>> property) where T : ModifiableEntity
+        {
+            return ReflectionTools.GetPropertyInfo(property);
+        }
+
+        public static string NicePropertyName<T>(this T entity, Expression<Func<T, object>> property) where T : ModifiableEntity
+        {
+            return ReflectionTools.GetPropertyInfo(property).NiceName();
+        }
+
+        public static int NumDecimals(string format)
+        {
+            var str = (0.0).ToString(format).TryAfter('.');
+
+            if(str == null)
+                return 0;
+
+            return str.Length;
+        }
     }
 }

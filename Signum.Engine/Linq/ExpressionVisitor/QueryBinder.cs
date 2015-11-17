@@ -125,9 +125,13 @@ namespace Signum.Engine.Linq
                         return BindTake(m.Type, m.GetArgument("source"), m.GetArgument("count"));
                 }
             }
-            else if (m.Method.DeclaringType == typeof(LinqHints) && m.Method.Name == "OrderAlsoByKeys")
+            else if (m.Method.DeclaringType == typeof(LinqHints))
             {
-                return BindOrderAlsoByKeys(m.Type, m.GetArgument("source"));
+                if (m.Method.Name == "OrderAlsoByKeys")
+                    return BindOrderAlsoByKeys(m.Type, m.GetArgument("source"));
+
+                if (m.Method.Name == "WithHint")
+                    return BindWithHints(m.GetArgument("source"), (ConstantExpression)m.GetArgument("hint"));
             }
             else if (m.Method.DeclaringType == typeof(Database) && (m.Method.Name == "Retrieve" || m.Method.Name == "RetrieveAndForget"))
             {
@@ -177,6 +181,29 @@ namespace Signum.Engine.Linq
 
             MethodCallExpression result = (MethodCallExpression)base.VisitMethodCall(m);
             return BindMethodCall(result);
+        }
+
+        string currentTableHint;
+
+        private Expression BindWithHints(Expression source, ConstantExpression hint)
+        {
+            string oldHint = currentTableHint;
+            try
+            {
+                currentTableHint = (string)hint.Value;
+
+                ProjectionExpression projection = this.VisitCastProjection(source);
+
+                if (currentTableHint != null)
+                    throw new InvalidOperationException("Hint {0} not applied".FormatWith(currentTableHint));
+
+                return projection;
+
+            }
+            finally
+            {
+                currentTableHint = oldHint;
+            }
         }
 
 
@@ -392,11 +419,8 @@ namespace Signum.Engine.Linq
 
             ProjectionExpression projection = (ProjectionExpression)newSource;
 
-            var projector = projection.Projector.Type == typeof(string) ? projection.Projector :
-                Expression.Call(projection.Projector, OverloadingSimplifier.miToString);
-
             Expression nominated;
-            var set = DbExpressionNominator.Nominate(projector, out nominated, isGroupKey: true);
+            var set = DbExpressionNominator.Nominate(projection.Projector, out nominated, isGroupKey: true);
 
             if (!set.Contains(nominated))
                 return Expression.Call(mi, projection, separator);
@@ -896,7 +920,8 @@ namespace Signum.Engine.Linq
                 ((TableMList)table).GetProjectorExpression(tableAlias, this);
 
             Type resultType = typeof(IQueryable<>).MakeGenericType(query.ElementType);
-            TableExpression tableExpression = new TableExpression(tableAlias, table);
+            TableExpression tableExpression = new TableExpression(tableAlias, table, currentTableHint);
+            currentTableHint = null;
 
             Alias selectAlias = NextSelectAlias();
 
@@ -914,7 +939,7 @@ namespace Signum.Engine.Linq
             Type returnType = mce.Method.ReturnType;
             var type = returnType.GetGenericArguments()[0];
 
-            Table table = new ViewBuilder(Schema.Current).NewView(type);
+            Table table = Schema.Current.ViewBuilder.NewView(type);
 
             Alias tableAlias = NextTableAlias(table.Name);
 
@@ -1041,14 +1066,8 @@ namespace Signum.Engine.Linq
                 }
             }
 
-            if(m.Method.Name == "TryToString")
-            {
-                var toStr = BindMethodCall(Expression.Call(source, EntityExpression.ToStringMethod));
-
-                return toStr;
-            }
-
-            if (m.Method.Name == "ToString" && m.Method.GetParameters().Length == 0)
+            if(m.Method.Name == "TryToString"  && m.Method.GetParameters().Length == 1 || 
+               m.Method.Name == "ToString" && m.Method.GetParameters().Length == 0)
             {
                 if (source is EntityExpression)
                 {
@@ -1186,7 +1205,7 @@ namespace Signum.Engine.Linq
                             {
                                 int index = nex.Constructor.GetParameters().IndexOf(p => p.Name.Equals(m.Member.Name, StringComparison.InvariantCultureIgnoreCase));
 
-                                if(index == null)
+                                if(index == -1)
                                     throw new InvalidOperationException("Impossible to bind '{0}' on '{1}'".FormatWith(m.Member.Name, nex.Constructor.ConstructorSignature()));
 
                                 return nex.Arguments[index].TryConvert(m.Member.ReturningType());
@@ -1920,7 +1939,7 @@ namespace Signum.Engine.Linq
             return (CommandAggregateExpression)QueryJoinExpander.ExpandJoins(result, this);
         }
 
-        static readonly MethodInfo miSetReadonly = ReflectionTools.GetMethodInfo(() => Administrator.SetReadonly(null, (Entity a) => a.Id, 1)).GetGenericMethodDefinition();
+        static readonly MethodInfo miSetReadonly = ReflectionTools.GetMethodInfo(() => UnsafeEntityExtensions.SetReadonly(null, (Entity a) => a.Id, 1)).GetGenericMethodDefinition();
         static readonly MethodInfo miSetMixin = ReflectionTools.GetMethodInfo(() => ((Entity)null).SetMixin((CorruptMixin m) => m.Corrupt, true)).GetGenericMethodDefinition();
 
         public void FillColumnAssigments(List<ColumnAssignment> assignments, ParameterExpression toInsert, Expression body)
@@ -2089,7 +2108,7 @@ namespace Signum.Engine.Linq
 
                     return new UnionEntity
                     {
-                        Table = new TableExpression(alias, ee.Table),
+                        Table = new TableExpression(alias, ee.Table, null),
                         Entity = (EntityExpression)ee.Table.GetProjectorExpression(alias, this),
                     };
                 }).ToReadOnly();
@@ -2212,7 +2231,7 @@ namespace Signum.Engine.Linq
                 AddRequest(new TableRequest
                 {
                     CompleteEntity = result,
-                    Table = new TableExpression(newAlias, table),
+                    Table = new TableExpression(newAlias, table, null),
                 });
 
                 return result;
@@ -2393,7 +2412,7 @@ namespace Signum.Engine.Linq
             TableMList relationalTable = mle.TableMList;
 
             Alias tableAlias = NextTableAlias(mle.TableMList.Name);
-            TableExpression tableExpression = new TableExpression(tableAlias, relationalTable);
+            TableExpression tableExpression = new TableExpression(tableAlias, relationalTable, null);
 
             Expression projector = relationalTable.FieldExpression(tableAlias, this, withRowId);
 
