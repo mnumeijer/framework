@@ -48,7 +48,7 @@ namespace Signum.Web
                 using (sb.SurroundLine(new HtmlTag("div", entityCombo.Compose("inputGroup")).Class("input-group")))
                 {
                     if (entityCombo.ReadOnly)
-                        sb.AddLine(helper.FormControlStatic(entityCombo, entityCombo.Compose(EntityBaseKeys.ToStr), entityCombo.UntypedValue.TryToString()));
+                        sb.AddLine(helper.FormControlStatic(entityCombo, entityCombo.Compose(EntityBaseKeys.ToStr), entityCombo.UntypedValue?.ToString()));
                     else
                         sb.AddLine(DropDownList(helper, entityCombo));
 
@@ -94,7 +94,7 @@ namespace Signum.Web
             if (entityCombo.SortElements)
                 data = data.OrderBy(a => a.ToString()).ToList();
 
-            var current = entityCombo.UntypedValue is IEntity ? ((IEntity)entityCombo.UntypedValue).ToLite() :
+            var current = entityCombo.UntypedValue is IEntity ? ((IEntity)entityCombo.UntypedValue)?.ToLite() :
                 entityCombo.UntypedValue as Lite<IEntity>;
 
             if (current != null && !data.Contains(current))
@@ -125,7 +125,7 @@ namespace Signum.Web
             if (entityCombo.PlaceholderLabels && !entityCombo.ComboHtmlProperties.ContainsKey("placeholder"))
                 entityCombo.ComboHtmlProperties.Add("placeholder", entityCombo.LabelText);
 
-            return helper.DropDownList(
+            return helper.SafeDropDownList(
                     entityCombo.Compose(EntityComboKeys.Combo),
                     items,
                     entityCombo.ComboHtmlProperties);

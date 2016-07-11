@@ -644,7 +644,7 @@ namespace Signum.Engine.Maps
 
             var uc = updater.Value;
             SqlPreCommandSimple update = new SqlPreCommandSimple(uc.SqlUpdatePattern(suffix, false),
-                uc.UpdateParameters(ident, (ident as Entity).Try(a => a.Ticks) ?? -1, new Forbidden(), suffix)).AddComment(comment);
+                uc.UpdateParameters(ident, (ident as Entity)?.Ticks ?? -1, new Forbidden(), suffix)).AddComment(comment);
 
             if (!includeCollections)
                 return update;
@@ -1366,15 +1366,14 @@ namespace Signum.Engine.Maps
 
     public partial class FieldImplementedByAll
     {
-        static readonly MethodInfo miTryToString = ReflectionTools.GetMethodInfo(() => "".TryToString());
 
         protected internal override void CreateParameter(List<Table.Trio> trios, List<Expression> assigments, Expression value, Expression forbidden, Expression suffix)
         {
-            trios.Add(new Table.Trio(Column, Expression.Call(miTryToString, Expression.Call(miUnWrap, this.GetIdFactory(value, forbidden))), suffix));
+            trios.Add(new Table.Trio(Column, Expression.Call(miUnWrapToString, this.GetIdFactory(value, forbidden)), suffix));
             trios.Add(new Table.Trio(ColumnType, Expression.Call(miConvertType, this.GetTypeFactory(value, forbidden)), suffix));
         }
 
-        static MethodInfo miUnWrap = ReflectionTools.GetMethodInfo(() => PrimaryKey.Unwrap(null));
+        static MethodInfo miUnWrapToString = ReflectionTools.GetMethodInfo(() => PrimaryKey.UnwrapToString(null));
         static MethodInfo miConvertType = ReflectionTools.GetMethodInfo(() => ConvertType(null));
 
         static IComparable ConvertType(Type type)

@@ -442,7 +442,7 @@ namespace Signum.Engine
             });
         }
 
-        public static void BulkInsertDisableIdentity<T>(IEnumerable<T> entities,
+        public static int BulkInsertDisableIdentity<T>(IEnumerable<T> entities,
           SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, bool validateFirst = false, int? timeout = null)
           where T : Entity
         {
@@ -451,13 +451,13 @@ namespace Signum.Engine
             if (options.HasFlag(SqlBulkCopyOptions.UseInternalTransaction))
                 throw new InvalidOperationException("BulkInsertDisableIdentity not compatible with UseInternalTransaction");
 
-            if (validateFirst)
-            {
-                Validate<T>(entities);
-            }
-
             var list = entities.ToList();
 
+            if (validateFirst)
+            {
+                Validate<T>(list);
+            }
+            
             var t = Schema.Current.Table<T>();
             using (Transaction tr = new Transaction())
             {
@@ -472,26 +472,33 @@ namespace Signum.Engine
                     foreach (var item in list)
                         item.SetNotModified();
 
-                    tr.Commit();
+                    return tr.Commit(list.Count);
                 }
             }
         }
 
-        public static void BulkInsert<T>(IEnumerable<T> entities,
-            SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, bool validateFirst = false, int? timeout = null)
+        public static int BulkInsert<T>(IEnumerable<T> entities,
+            SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, bool validateFirst = false, int? timeout = null, string message = null)
             where T : Entity
         {
+
+            if (message != null)
+                return SafeConsole.WaitRows(message == "auto" ? $"BulkInsering { typeof(T).TypeName()}" : message,
+                    () => BulkInsert(entities, options, validateFirst, timeout, message: null));
+
             if (options.HasFlag(SqlBulkCopyOptions.UseInternalTransaction))
                 throw new InvalidOperationException("BulkInsertDisableIdentity not compatible with UseInternalTransaction");
 
+            var list = entities.ToList();
+
             if (validateFirst)
             {
-                Validate<T>(entities);
+                Validate<T>(list);
             }
 
             var t = Schema.Current.Table<T>();
 
-            DataTable dt = CreateDataTable<T>(entities, t);
+            DataTable dt = CreateDataTable<T>(list, t);
 
             using (Transaction tr = new Transaction())
             {
@@ -499,8 +506,10 @@ namespace Signum.Engine
 
                 Executor.BulkCopy(dt, t.Name, options, timeout);
 
-                if (tr != null)
-                    tr.Commit();
+                foreach (var item in list)
+                    item.SetNotModified();
+
+                return tr.Commit(list.Count);
             }
         }
 
@@ -531,14 +540,49 @@ namespace Signum.Engine
             return dt;
         }
 
-
-
-        public static void BulkInsertMList<E, V>(Expression<Func<E, MList<V>>> mListProperty,
-            IEnumerable<MListElement<E, V>> entities,
-            SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, 
-            int? timeout = null)
+        public static int BulkInsertMListFromEntities<E, V>(List<E> entities, 
+            Expression<Func<E, MList<V>>> mListProperty,
+            SqlBulkCopyOptions options = SqlBulkCopyOptions.Default,
+            int? timeout = null,
+            string message = null)
             where E : Entity
         {
+            try {
+                var func = mListProperty.Compile();
+
+                var mlists = (from e in entities
+                              from mle in func(e).Select((iw, i) => new MListElement<E, V>
+                              {
+                                  Order = i,
+                                  Element = iw,
+                                  Parent = e,
+                              })
+                              select mle).ToList();
+
+                return Administrator.BulkInsertMList(mListProperty, mlists, options, timeout, message);
+            }
+            catch(InvalidOperationException e) when (e.Message.Contains("has no Id"))
+            {
+                throw new InvalidOperationException($"{nameof(BulkInsertMListFromEntities)} requires that you set the Id of the entities manually using {nameof(UnsafeEntityExtensions.SetId)}");
+
+                throw;
+            }
+        }
+
+
+
+        public static int BulkInsertMList<E, V>(Expression<Func<E, MList<V>>> mListProperty,
+            IEnumerable<MListElement<E, V>> entities,
+            SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, 
+            int? timeout = null, 
+            string message = null)
+            where E : Entity
+        {
+
+            if (message != null)
+                return SafeConsole.WaitRows(message == "auto" ? $"BulkInsering MList<{ typeof(V).TypeName()}> in { typeof(E).TypeName()}" : message,
+                    () => BulkInsertMList(mListProperty, entities, options, timeout, message: null));
+
             if (options.HasFlag(SqlBulkCopyOptions.UseInternalTransaction))
                 throw new InvalidOperationException("BulkInsertDisableIdentity not compatible with UseInternalTransaction");
 
@@ -547,7 +591,9 @@ namespace Signum.Engine
             foreach (var c in t.Columns.Values.Where(c => !c.IdentityBehaviour))
                 dt.Columns.Add(new DataColumn(c.Name, c.Type.UnNullify()));
 
-            foreach (var e in entities)
+            var list = entities.ToList();
+
+            foreach (var e in list)
             {
                 dt.Rows.Add(t.BulkInsertDataRow(e.Parent, e.Element, e.Order));
             }
@@ -558,8 +604,14 @@ namespace Signum.Engine
 
                 Executor.BulkCopy(dt, t.Name, options, timeout);
 
-                tr.Commit();
+                return tr.Commit(list.Count);
             }
+        }
+
+        public static T GetSetTicks<T>(this T entity) where T :Entity
+        {
+            entity.Ticks = entity.InDBEntity(e => e.Ticks);
+            return entity;
         }
     }
 }

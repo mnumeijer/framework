@@ -76,7 +76,7 @@ namespace Signum.Engine
             {
                 string name = replacements.Apply(Replacements.KeyTables, objectName.ToString());
 
-                return model.TryGetC(name).Try(a => a.Name) ?? objectName;
+                return model.TryGetC(name)?.Name ?? objectName;
             };
 
             Func<DiffTable, DiffIndex, Index, bool> columnsChanged = (dif, dix, mix) =>
@@ -103,10 +103,7 @@ namespace Signum.Engine
                         return SqlBuilder.DropStatistics(tn, dif.Stats.Where(a => a.Columns.Any(removedColums.Contains)).ToList());
                     },
                      Spacing.Double);
-
-
-                bool? removeExtraControlledIndexes = null;
-
+                
                 SqlPreCommand dropIndices =
                     Synchronizer.SynchronizeScript(model, database,
                      null,
@@ -119,8 +116,8 @@ namespace Signum.Engine
 
                         var changes = Synchronizer.SynchronizeScript(modelIxs, dif.Indices,
                             null,
-                            (i, dix) => dix.Columns.Any(removedColums.Contains) || dix.IsControlledIndex && SafeConsole.Ask(ref removeExtraControlledIndexes, "Remove extra controlled index {0} in {1}?".FormatWith(dix.IndexName, tab.Name)) ? SqlBuilder.DropIndex(dif.Name, dix) : null,
-                            (i, mix, dix) => (mix as UniqueIndex).Try(u => u.ViewName) != dix.ViewName || columnsChanged(dif, dix, mix) ? SqlBuilder.DropIndex(dif.Name, dix) : null,
+                            (i, dix) => dix.Columns.Any(removedColums.Contains) || dix.IsControlledIndex ? SqlBuilder.DropIndex(dif.Name, dix) : null,
+                            (i, mix, dix) => (mix as UniqueIndex)?.ViewName != dix.ViewName || columnsChanged(dif, dix, mix) ? SqlBuilder.DropIndex(dif.Name, dix) : null,
                             Spacing.Simple);
 
                         return changes;
@@ -228,14 +225,14 @@ namespace Signum.Engine
                     {
                         var columnReplacements = replacements.TryGetC(Replacements.KeyColumnsForTable(tn));
 
-                        Func<IColumn, bool> isNew = c => !dif.Columns.ContainsKey(columnReplacements.TryGetC(c.Name) ?? c.Name);
+                        Func<IColumn, bool> isNew = c => !dif.Columns.ContainsKey(columnReplacements?.TryGetC(c.Name) ?? c.Name);
 
                         Dictionary<string, Index> modelIxs = modelIndices[tab];
 
                         var controlledIndexes = Synchronizer.SynchronizeScript(modelIxs, dif.Indices,
                             (i, mix) => mix is UniqueIndex || mix.Columns.Any(isNew) || SafeConsole.Ask(ref createMissingFreeIndexes, "Create missing non-unique index {0} in {1}?".FormatWith(mix.IndexName, tab.Name)) ? SqlBuilder.CreateIndex(mix) : null,
                             null,
-                            (i, mix, dix) => (mix as UniqueIndex).Try(u => u.ViewName) != dix.ViewName || columnsChanged(dif, dix, mix) ? SqlBuilder.CreateIndex(mix) :
+                            (i, mix, dix) => (mix as UniqueIndex)?.ViewName != dix.ViewName || columnsChanged(dif, dix, mix) ? SqlBuilder.CreateIndex(mix) :
                                 mix.IndexName != dix.IndexName ? SqlBuilder.RenameIndex(tab, dix.IndexName, mix.IndexName) : null,
                             Spacing.Simple);
 
@@ -303,7 +300,7 @@ namespace Signum.Engine
                     if (oldIx.ViewName != null || (newIx is UniqueIndex) && ((UniqueIndex)newIx).ViewName != null)
                         return false;
 
-                    var news = newIx.Columns.Select(c => diff.Columns.TryGetC(c.Name).Try(d => d.Name)).NotNull().ToHashSet();
+                    var news = newIx.Columns.Select(c => diff.Columns.TryGetC(c.Name)?.Name).NotNull().ToHashSet();
 
                     if (!news.SetEquals(oldIx.Columns))
                         return false;
@@ -342,7 +339,7 @@ namespace Signum.Engine
 
             return new SqlPreCommandSimple(
 @"UPDATE {2}
-SET {0} = GetId{5}({4}.Id)
+SET {0} =  -- get {5} id from {4}.Id
 FROM {1} {2}
 JOIN {3} {4} ON {2}.{0} = {4}.Id".FormatWith(tabCol.Name,
                 tn, ag.NextTableAlias(tn),
@@ -576,7 +573,7 @@ JOIN {3} {4} ON {2}.{0} = {4}.Id".FormatWith(tabCol.Name,
             if (replacements.SchemaOnly)
                 return null;
 
-            var list = Schema.Current.DatabaseNames().Select(a => a.TryToString()).ToList();
+            var list = Schema.Current.DatabaseNames().Select(a => a?.ToString()).ToList();
 
             if (list.Contains(null))
             {

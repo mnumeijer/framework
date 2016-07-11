@@ -10,6 +10,18 @@ using Signum.Utilities.ExpressionTrees;
 
 namespace Signum.Entities
 {
+    /// <summary>
+    /// When used on a static class, auto-initializes its static fields of symbols or operations 
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    public sealed class AutoInitAttribute : Attribute
+    {
+        public static Exception ArgumentNullException(Type argumentType, string argumentName)
+        {
+            return new ArgumentNullException(argumentName, $"The argument '{argumentName}' of type '{argumentType.TypeName()}' is null. Are you missing an [AutoInit] attribute?");
+        }
+    }
+
     [AttributeUsage(AttributeTargets.Class)]
     public sealed class CleanTypeNameAttribute: Attribute
     {
@@ -36,7 +48,7 @@ namespace Signum.Entities
 
         public static bool IsLowPopulation(Type type)
         {
-            return TryGetAttribute(type).Try(a => a.IsLowPopulation) ?? false;
+            return TryGetAttribute(type)?.IsLowPopulation ?? false;
         }
 
         public static EntityKindAttribute GetAttribute(Type type)

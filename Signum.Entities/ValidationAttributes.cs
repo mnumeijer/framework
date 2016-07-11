@@ -889,7 +889,7 @@ namespace Signum.Entities
 
     public enum ValidationMessage
     {
-        [Description("{0} does not have a valid {0} format")]
+        [Description("{0} does not have a valid {1} format")]
         _0DoesNotHaveAValid1Format,
         [Description("{0} has an invalid format")]
         _0HasAnInvalidFormat,
@@ -989,5 +989,9 @@ namespace Signum.Entities
         _0ShouldBeGreaterThan1,
         [Description("{0} has a precission of {1} instead of {2}")]
         _0HasAPrecissionOf1InsteadOf2,
+        [Description("{0} should be of type {1}")]
+        _0ShouldBeOfType1,
+        [Description("{0} and {1} can not be set at the same time")]
+        _0And1CanNotBeSetAtTheSameTime,
     }
 }

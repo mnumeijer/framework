@@ -105,11 +105,10 @@ namespace Signum.Web
 
             if (value != null)
                 items.Where(e => e.Value == value.ToString())
-                    .SingleOrDefaultEx()
-                    .TryDo(s => s.Selected = true);
+                    .SingleOrDefaultEx()?.Do(s => s.Selected = true);
 
             valueLine.ValueHtmlProps.AddCssClass("form-control");
-            return helper.DropDownList(valueLine.Prefix, items, valueLine.ValueHtmlProps);
+            return helper.SafeDropDownList(valueLine.Prefix, items, valueLine.ValueHtmlProps);
         }
 
         public static MvcHtmlString DateTimePicker(this HtmlHelper helper, ValueLine valueLine)
@@ -123,9 +122,9 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value.TryToString(valueLine.Format)));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value?.ToString(valueLine.Format)));
 
-                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value?.ToString(valueLine.Format), valueLine.ValueHtmlProps));
             }
 
             valueLine.ValueHtmlProps.AddCssClass("form-control");
@@ -140,9 +139,9 @@ namespace Signum.Web
             {
                 MvcHtmlString result = MvcHtmlString.Empty;
                 if (valueLine.WriteHiddenOnReadonly)
-                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value.TryToString(valueLine.Format)));
+                    result = result.Concat(HiddenWithoutId(valueLine.Prefix, value?.ToString(valueLine.Format)));
 
-                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value.TryToString(valueLine.Format), valueLine.ValueHtmlProps));
+                return result.Concat(helper.FormControlStatic(valueLine, valueLine.Prefix, value?.ToString(valueLine.Format), valueLine.ValueHtmlProps));
             }
             
             var dateFormatAttr = valueLine.PropertyRoute.PropertyInfo.GetCustomAttribute<TimeSpanDateFormatAttribute>();
@@ -157,8 +156,8 @@ namespace Signum.Web
 
         public static MvcHtmlString TextboxInLine(this HtmlHelper helper, ValueLine valueLine)
         {
-            string value = (valueLine.UntypedValue as IFormattable).TryToString(valueLine.Format) ??
-                           valueLine.UntypedValue.TryToString() ?? "";
+            string value = (valueLine.UntypedValue as IFormattable)?.ToString(valueLine.Format, CultureInfo.CurrentCulture) ??
+                           valueLine.UntypedValue?.ToString() ?? "";
 
             if (valueLine.ReadOnly)
             {
@@ -304,7 +303,7 @@ namespace Signum.Web
 
         public static MvcHtmlString Hidden(this HtmlHelper helper, HiddenLine hiddenLine)
         {
-            return helper.Hidden(hiddenLine.Prefix, hiddenLine.UntypedValue.TryToString() ?? "", hiddenLine.ValueHtmlProps);
+            return helper.Hidden(hiddenLine.Prefix, hiddenLine.UntypedValue?.ToString() ?? "", hiddenLine.ValueHtmlProps);
         }
     }
 

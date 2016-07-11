@@ -100,7 +100,7 @@ namespace Signum.Web
             {
                 PropertyRoute route = bl.PropertyRoute;
 
-                eb.Move = bl.PropertyRoute.FieldInfo.HasAttribute<PreserveOrderAttribute>();
+                eb.Move = Schema.Current.Settings.FieldAttributes(bl.PropertyRoute).OfType<PreserveOrderAttribute>().Any();
             }
         }
 
@@ -120,7 +120,7 @@ namespace Signum.Web
             ValueLine vl = bl as ValueLine;
             if (vl != null && bl.PropertyRoute.PropertyRouteType == PropertyRouteType.FieldOrProperty)
             {
-                var slv = Validator.TryGetPropertyValidator(bl.PropertyRoute).Try(pv => pv.Validators.OfType<StringLengthValidatorAttribute>().FirstOrDefault());
+                var slv = Validator.TryGetPropertyValidator(bl.PropertyRoute)?.Validators.OfType<StringLengthValidatorAttribute>().FirstOrDefault();
                 if (slv != null)
                 {
                     int max = slv.Max; //-1 if not set
@@ -200,7 +200,7 @@ namespace Signum.Web
                 }
             }
 
-            throw new InvalidCastException("Impossible to convert objet {0} from type {1} to type {2}".FormatWith(obj, objType, type));
+            throw new InvalidCastException("Impossible to convert object '{0}' from type '{1}' to type '{2}'".FormatWith(obj, objType.TypeName(), type.TypeName()));
         }
     }
 }

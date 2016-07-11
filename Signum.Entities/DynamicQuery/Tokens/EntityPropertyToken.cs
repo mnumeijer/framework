@@ -54,8 +54,8 @@ namespace Signum.Entities.DynamicQuery
         {
             var baseExpression = Parent.BuildExpression(context);
 
-            if (PropertyInfo.Is((Entity ident) => ident.Id) ||
-                PropertyInfo.Is((Entity ident) => ident.ToStringProperty))
+            if (PropertyInfo.Name == nameof(Entity.Id) ||
+                PropertyInfo.Name == nameof(Entity.ToStringProperty))
             {
                 var entityExpression = baseExpression.ExtractEntity(true);
 
@@ -82,8 +82,8 @@ namespace Signum.Entities.DynamicQuery
 
                 if (route != null)
                 {
-                    var att = Validator.TryGetPropertyValidator(route.Parent.Type, route.PropertyInfo.Name).Try(pp =>
-                        pp.Validators.OfType<DateTimePrecissionValidatorAttribute>().SingleOrDefaultEx());
+                    var att = Validator.TryGetPropertyValidator(route.Parent.Type, route.PropertyInfo.Name)?.Validators
+                        .OfType<DateTimePrecissionValidatorAttribute>().SingleOrDefaultEx();
                     if (att != null)
                     {
                         return DateTimeProperties(this, att.Precision);
@@ -99,8 +99,8 @@ namespace Signum.Entities.DynamicQuery
 
                 if (route != null)
                 {
-                    var att = Validator.TryGetPropertyValidator(route.Parent.Type, route.PropertyInfo.Name).Try(pp =>
-                        pp.Validators.OfType<DecimalsValidatorAttribute>().SingleOrDefaultEx());
+                    var att = Validator.TryGetPropertyValidator(route.Parent.Type, route.PropertyInfo.Name)?.Validators
+                        .OfType<DecimalsValidatorAttribute>().SingleOrDefaultEx();
                     if (att != null)
                     {
                         return StepTokens(this, att.DecimalPlaces);
@@ -127,7 +127,7 @@ namespace Signum.Entities.DynamicQuery
 
         public override string Unit
         {
-            get { return PropertyInfo.GetCustomAttribute<UnitAttribute>().Try(u => u.UnitName); }
+            get { return PropertyInfo.GetCustomAttribute<UnitAttribute>()?.UnitName; }
         }
 
         public override string IsAllowed()

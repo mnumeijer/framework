@@ -106,7 +106,7 @@ namespace Signum.Entities.Reflection
         static void AssertCloneAttack(DirectedGraph<Modifiable> graph)
         {
             var problems = (from m in graph.OfType<Entity>()
-                            group m by new { Type = m.GetType(), Id = (m as Entity).Try(ident => (object)ident.IdOrNull) ?? (object)m.temporalId } into g
+                            group m by new { Type = m.GetType(), Id = (m as Entity)?.Let(ident => (object)ident.IdOrNull) ?? (object)m.temporalId } into g
                             where g.Count() > 1 && g.Count(m => m.Modified == ModifiedState.SelfModified) > 0
                             select g).ToList();
 
@@ -244,7 +244,7 @@ namespace Signum.Entities.Reflection
                new XAttribute("Label", (ie.ToString() ?? "[null]")  + Modified(ie)),
                new XAttribute("TypeName", ie.GetType().TypeName()), 
                new XAttribute("Background", ColorExtensions.ToHtmlColor(ie.GetType().FullName.GetHashCode())),
-               new XAttribute("Description", ie.IdOrNull.TryToString() ?? "New")
+               new XAttribute("Description", ie.IdOrNull?.ToString() ?? "New")
             };
         }
 
@@ -262,7 +262,7 @@ namespace Signum.Entities.Reflection
                new XAttribute("Stroke", ColorExtensions.ToHtmlColor(lite.EntityType.FullName.GetHashCode())),
                new XAttribute("StrokeThickness", "2"),
                new XAttribute("Background", ColorExtensions.ToHtmlColor(lite.EntityType.FullName.GetHashCode()).Replace("#", "#44")),
-               new XAttribute("Description", lite.IdOrNull.TryToString() ?? "New")
+               new XAttribute("Description", lite.IdOrNull?.ToString() ?? "New")
             };
         }
 
