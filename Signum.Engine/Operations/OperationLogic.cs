@@ -17,6 +17,7 @@ using System.Linq.Expressions;
 using Signum.Entities.Basics;
 using System.Data.Common;
 using Signum.Engine.Operations.Internal;
+using System.Configuration;
 
 namespace Signum.Engine.Operations
 {
@@ -118,6 +119,8 @@ namespace Signum.Engine.Operations
             {
                 sb.Include<OperationLogEntity>();
 
+                operationLogsToSkip = ConfigurationManager.AppSettings["OperationLogsToSkip"].Split(',');
+
                 SymbolLogic<OperationSymbol>.Start(sb, () => RegisteredOperations);
 
                 dqm.RegisterQuery(typeof(OperationSymbol), () =>
@@ -159,7 +162,20 @@ namespace Signum.Engine.Operations
 
         public static void ExceptionLogic_DeleteLogs(DeleteLogParametersEntity parameters)
         {
-            Database.Query<OperationLogEntity>().Where(o => o.Start < parameters.DateLimit).UnsafeDeleteChunks(parameters.ChunkSize, parameters.MaxChunks);
+            Database.Query<OperationLogEntity>()
+                .Where(o => !o.SkipLogDelete())
+                .Where(o => o.Start < parameters.DateLimit)
+                .UnsafeDeleteChunks(parameters.ChunkSize, parameters.MaxChunks);
+        }
+
+        private static string[] operationLogsToSkip;
+
+        static Expression<Func<OperationLogEntity, bool>> SkipLogDeleteExpression = (v) => operationLogsToSkip.Contains(v.Operation.Key);
+
+        [ExpressionField]
+        private static bool SkipLogDelete(this OperationLogEntity v)
+        {
+            return SkipLogDeleteExpression.Evaluate(v);
         }
 
         static void OperationLogic_Initializing()
