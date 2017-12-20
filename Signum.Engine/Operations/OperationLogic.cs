@@ -119,8 +119,6 @@ namespace Signum.Engine.Operations
             {
                 sb.Include<OperationLogEntity>();
 
-                operationLogsToSkip = ConfigurationManager.AppSettings["OperationLogsToSkip"].Split(',');
-
                 SymbolLogic<OperationSymbol>.Start(sb, () => RegisteredOperations);
 
                 dqm.RegisterQuery(typeof(OperationSymbol), () =>
@@ -162,6 +160,8 @@ namespace Signum.Engine.Operations
 
         public static void ExceptionLogic_DeleteLogs(DeleteLogParametersEntity parameters)
         {
+            operationLogsToSkip = ConfigurationManager.AppSettings["OperationLogsToSkip"].Split(',');
+
             Database.Query<OperationLogEntity>()
                 .Where(o => !o.SkipLogDelete())
                 .Where(o => o.Start < parameters.DateLimit)
