@@ -23,6 +23,11 @@ using System.Collections.Concurrent;
 
 namespace Signum.Entities
 {
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class KineticReplicationAttribute : Attribute
+    {
+    }
+
     [Serializable, DescriptionOptions(DescriptionOptions.Members | DescriptionOptions.Description)]
     public abstract class ModifiableEntity : Modifiable, INotifyPropertyChanged, IDataErrorInfo, ICloneable
     {
@@ -110,6 +115,10 @@ namespace Signum.Entities
                 if (AttributeManager<ValidateChildPropertyAttribute>.FieldContainsAttribute(GetType(), pi))
                     mod.ExternalPropertyValidation += ChildPropertyValidation;
             }
+
+            var ki = pi.CustomAttributes.SingleOrDefault(a => a.AttributeType == typeof(KineticReplicationAttribute));
+
+            if (ki != null) OnNotifyKinetic(EventArgs.Empty); // NotifyPrivate("NotifyKinetic");
 
             NotifyPrivate(pi.Name);
             NotifyPrivate("Error");
@@ -282,7 +291,16 @@ namespace Signum.Entities
                 handler(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        
+        [Ignore]
+        [FieldWithoutProperty]
+        public event EventHandler NotifyKinetic;
+
+        protected void OnNotifyKinetic(EventArgs e)
+        {
+            if (NotifyKinetic != null) NotifyKinetic(this, e);
+        }
+
+
         #region Temporal ID
         [Ignore]
         internal Guid temporalId = Guid.NewGuid();

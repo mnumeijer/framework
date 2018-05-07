@@ -321,6 +321,8 @@ namespace Signum.Engine.Maps
 
             foreach (FieldInfo fi in Reflector.InstanceFieldsInOrder(type))
             {
+                if (fi.FieldType == typeof(EventHandler)) continue;
+
                 PropertyRoute route = root.Add(fi);
 
                 if (Settings.FieldAttribute<IgnoreAttribute>(route) == null)
