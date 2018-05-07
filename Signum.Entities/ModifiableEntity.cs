@@ -291,8 +291,6 @@ namespace Signum.Entities
                 handler(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        [Ignore]
-        [FieldWithoutProperty]
         public event EventHandler NotifyKinetic;
 
         protected void OnNotifyKinetic(EventArgs e)
