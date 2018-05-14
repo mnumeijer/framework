@@ -28,6 +28,24 @@ namespace Signum.Entities
     {
     }
 
+    [Serializable]
+    public abstract class KineticEmbeddedEntity : ModifiableEntity
+    {
+        protected KineticEmbeddedEntity()
+        {
+            this.NotifyKinetic += HandleNotifyKinetic;
+        }
+
+        private void HandleNotifyKinetic(object sender, EventArgs args)
+        {
+            NeedsKineticReplication = true;
+        }
+
+        [Ignore]
+        public bool NeedsKineticReplication { get; set; }
+
+    }
+
     [Serializable, DescriptionOptions(DescriptionOptions.Members | DescriptionOptions.Description)]
     public abstract class ModifiableEntity : Modifiable, INotifyPropertyChanged, IDataErrorInfo, ICloneable
     {

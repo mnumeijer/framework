@@ -158,7 +158,7 @@ namespace Signum.Entities.Reflection
 
         public static bool IsEmbeddedEntity(this Type t)
         {
-            return typeof(EmbeddedEntity).IsAssignableFrom(t);
+            return typeof(EmbeddedEntity).IsAssignableFrom(t) || typeof(KineticEmbeddedEntity).IsAssignableFrom(t);
         }
 
         public static FieldInfo[] InstanceFieldsInOrder(Type type)
