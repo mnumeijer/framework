@@ -300,6 +300,8 @@ namespace Signum.Entities.Reflection
 
         public static bool HasChanges(Modifiable mod)
         {
+            // Uncomment following line to see which entities have been modified
+            // var changes = GraphExplorer.FromRoot(mod).Where(a => a.Modified == ModifiedState.SelfModified).Select(a => a);
             return GraphExplorer.FromRoot(mod).Any(a => a.Modified == ModifiedState.SelfModified);
         }
 

@@ -33,11 +33,13 @@ namespace Signum.Entities
     {
         protected KineticEmbeddedEntity()
         {
+            SetCleanModified(false);
             this.NotifyKinetic += HandleNotifyKinetic;
         }
 
         private void HandleNotifyKinetic(object sender, EventArgs args)
         {
+            SetSelfModified();
             NeedsKineticReplication = true;
         }
 
